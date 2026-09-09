@@ -8,14 +8,16 @@ stays in the n8n workflows. See `SPEC.md` and `CONTRACT.md`.
 
 ---
 
-## Current status: milestone 1 — mock data
+## Current status: milestone 2 — GET /documents is live
 
-The interface is complete and runs entirely on mock data.
-
-- **No call reaches n8n.** `src/api/client.js` runs in mock mode, so nothing leaves
-  the browser.
-- The Express server starts and is ready to become the n8n proxy, but its three
-  routes currently answer with a `NOT_CONFIGURED` error and make no outbound calls.
+- **`GET /documents` is connected.** The Express server calls the real n8n
+  endpoint with the `x-api-key` header and normalizes the raw Google Sheet
+  columns into the CONTRACT.md field names. If `N8N_BASE_URL` or `N8N_SECRET`
+  is unset, it returns a graceful `NOT_CONFIGURED` error instead of failing.
+- **`POST /process-document` and `POST /review` are still mocked.** They are
+  hardcoded in `src/api/client.js` to call the mock functions regardless of any
+  env flag, so they cannot be activated by accident. Upload and human review
+  keep working against demo data.
 - No real secret exists anywhere in the project.
 
 ---
@@ -46,7 +48,8 @@ Stop both with `Ctrl+C`.
 index.html
 vite.config.js               dev server + /api proxy to Express
 server/
-  server.js                  Express server (no n8n calls yet)
+  server.js                  Express server; GET /documents calls n8n, POST routes are stubs
+  normalizeDocument.js        maps raw Google Sheet headers to CONTRACT.md field names
 src/
   main.jsx                   React entry point
   App.jsx                    application shell and routes
@@ -91,10 +94,10 @@ updates once the review is accepted.
 
 ---
 
-## Reviewing the states without a live workflow
+## Reviewing the upload/review states without a live workflow
 
 `src/api/mock.js` picks a scenario from the uploaded **file name**, so every error
-state in SPEC.md F7 can be seen:
+state in SPEC.md F7 for Upload can be seen:
 
 | File name contains | Result |
 |--------------------|--------|
@@ -107,19 +110,33 @@ state in SPEC.md F7 can be seen:
 Selecting a file of another type, or one over the size limit, is rejected in the
 browser before any request is prepared.
 
-The mock document log lives in memory for the browser session: uploads and reviews
-are visible while the tab stays open, and reloading the page restores the seed data.
-The application has no database of its own.
+The mock write-side document log lives in memory for the browser session: uploads
+and reviews made through the still-mocked endpoints are visible while the tab
+stays open, and reloading the page restores the seed data. Because it is a
+separate store from the live `GET /documents` data, opening the detail page for a
+just-uploaded document, or reviewing a live-sourced one, currently shows
+"Document not found" — expected until `POST /process-document` and `POST /review`
+are connected in their own milestones. The application has no database of its own.
+
+## Reviewing the document log without a live n8n endpoint
+
+Point `N8N_BASE_URL` at any HTTP server that requires the `x-api-key` header and
+returns a JSON array shaped like the Google Sheet export (`Received At`,
+`Sender / Company`, …) to see `GET /documents` end to end, including the
+normalization step and its error paths (`UNAUTHORIZED` on a bad key, `TIMEOUT` on
+a slow response, `SERVICE_UNAVAILABLE` when unreachable).
 
 ---
 
 ## Configuration
 
 Copy `.env.example` to `.env` and fill in real values there. `.env` is git-ignored.
+With no `.env` present, `GET /documents` returns a graceful `NOT_CONFIGURED` error
+rather than failing.
 
-Server-side variables (`N8N_*`, `PORT`, `USE_MOCK`) never reach the browser.
-Variables prefixed `VITE_` **are** bundled into the browser code, so no secret may
-ever be given a `VITE_` name.
+Server-side variables (`N8N_*`, `PORT`) never reach the browser. Variables
+prefixed `VITE_` **are** bundled into the browser code, so no secret may ever be
+given a `VITE_` name.
 
 ---
 
@@ -127,7 +144,7 @@ ever be given a `VITE_` name.
 
 The real endpoints are connected one at a time, in this order:
 
-1. `GET /documents`
+1. ~~`GET /documents`~~ — connected
 2. `POST /process-document`
 3. `POST /review`
 

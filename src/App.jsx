@@ -1,5 +1,5 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import { isMockMode } from './api/client.js'
+import { isWriteMocked } from './api/client.js'
 import { CURRENT_USER } from './lib/session.js'
 import Dashboard from './screens/Dashboard.jsx'
 import DocumentDetail from './screens/DocumentDetail.jsx'
@@ -46,9 +46,10 @@ export default function App() {
         </aside>
 
         <div className="main">
-          {isMockMode() && (
+          {isWriteMocked() && (
             <div className="mode-strip" role="status">
-              Demo data — the document service is not connected. Nothing is sent outside this browser.
+              The document log is loaded from the document service. Uploading a document and marking
+              documents as reviewed still use demo data for now.
             </div>
           )}
 
