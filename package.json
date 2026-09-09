@@ -1,0 +1,29 @@
+{
+  "name": "medcore-document-operations-hub",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Internal operations interface for the MedCore Smart Office Document Assistant (n8n).",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names \"server,web\" --prefix-colors \"cyan,magenta\" \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node server/server.js",
+    "dev:web": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "vite": "^5.4.8"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}
