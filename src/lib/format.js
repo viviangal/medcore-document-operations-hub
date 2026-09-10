@@ -42,3 +42,11 @@ export function fileExtension(fileName = '') {
   const index = fileName.lastIndexOf('.')
   return index === -1 ? '' : fileName.slice(index).toLowerCase()
 }
+
+// Display-only capitalization for single-word contract values (e.g. document_type:
+// "invoice" -> "Invoice"). The stored/API value is never changed by this — only
+// what is rendered in a label.
+export function capitalize(value) {
+  if (typeof value !== 'string' || value.length === 0) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}

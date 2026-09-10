@@ -4,7 +4,7 @@ import { StatusBadge, TypeTag, UrgencyBadge } from '../components/Badges.jsx'
 import { EmptyState, ErrorBanner, LoadingRows } from '../components/Feedback.jsx'
 import Value from '../components/Value.jsx'
 import { DEPARTMENTS, DOCUMENT_TYPES, STATUSES, URGENCY_LEVELS } from '../lib/constants.js'
-import { formatTimestamp } from '../lib/format.js'
+import { capitalize, formatTimestamp } from '../lib/format.js'
 import { useDocuments } from '../state/DocumentsContext.jsx'
 
 const INITIAL_FILTERS = {
@@ -134,6 +134,7 @@ export default function Dashboard() {
               label="Type"
               value={filters.document_type}
               options={DOCUMENT_TYPES}
+              formatLabel={capitalize}
               onChange={(value) => updateFilter('document_type', value)}
             />
             <FilterSelect
@@ -206,9 +207,13 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((doc) => (
+                  {visible.map((doc, index) => (
                     <tr
-                      key={doc.document_id}
+                      // document_id is not guaranteed unique in the live data (a Google
+                      // Sheet row-number issue on the n8n side). A composite key keeps
+                      // React from confusing rows across renders; index guarantees
+                      // uniqueness even when every other field collides too.
+                      key={`${doc.document_id || 'no-id'}-${doc.received_at || 'no-date'}-${index}`}
                       className="table__row"
                       tabIndex={0}
                       role="link"
@@ -255,7 +260,9 @@ export default function Dashboard() {
   )
 }
 
-function FilterSelect({ id, label, value, options, onChange }) {
+// formatLabel controls the displayed text only — the option's value (what
+// filtering compares against) is always the raw contract value.
+function FilterSelect({ id, label, value, options, onChange, formatLabel = (option) => option }) {
   return (
     <div className="filter">
       <label className="filter__label" htmlFor={id}>
@@ -270,7 +277,7 @@ function FilterSelect({ id, label, value, options, onChange }) {
         <option value="all">All</option>
         {options.map((option) => (
           <option key={option} value={option}>
-            {option}
+            {formatLabel(option)}
           </option>
         ))}
       </select>

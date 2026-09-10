@@ -5,7 +5,7 @@
 //
 // Endpoints are connected one at a time, in the order given in SPEC.md section 7:
 //   1. GET  /documents        <- connected (milestone 2)
-//   2. POST /process-document <- still mocked
+//   2. POST /process-document <- connected (milestone 3 backend, milestone 4 frontend)
 //   3. POST /review           <- still mocked
 //
 // The browser calls the Express server. The Express server is the only place
@@ -13,14 +13,13 @@
 
 import { REQUEST_TIMEOUT_MS, REVIEW_NOTE_MAX_LENGTH } from '../lib/constants.js'
 import { createAppError, errorFromStatus, toAppError } from '../lib/errors.js'
-import { mockProcessDocument, mockReview } from './mock.js'
+import { mockReview } from './mock.js'
 
 const API_BASE = '/api'
 
-// POST /process-document and POST /review are deliberately not gated by an env
-// flag: they stay mocked until their own milestones regardless of any toggle,
-// so connecting GET /documents cannot accidentally activate them.
-export function isWriteMocked() {
+// POST /review is not gated by an env flag: it stays mocked until its own
+// milestone regardless of any toggle.
+export function isReviewMocked() {
   return true
 }
 
@@ -76,17 +75,22 @@ export async function getDocuments() {
 }
 
 /**
- * POST /process-document — sends one document for processing.
- * Still mocked (milestone 3 connects this). See isWriteMocked().
+ * POST /process-document — sends one document for processing. The Express server
+ * forwards it to n8n and returns the extracted business information unchanged
+ * (CONTRACT.md section 2). Structured n8n errors (UNSUPPORTED_FILE_TYPE,
+ * EMPTY_DOCUMENT, ...) surface here through request()'s error handling.
  * @param {{file_name: string, mime_type: string, file_base64: string, submitted_by?: string}} body
  */
 export async function processDocument(body) {
-  return mockProcessDocument(body)
+  return request('/process-document', {
+    method: 'POST',
+    body: JSON.stringify(body)
+  })
 }
 
 /**
  * POST /review — records a human review.
- * Still mocked (milestone 4 connects this). See isWriteMocked().
+ * Still mocked (milestone 5 connects this). See isReviewMocked().
  * @param {{document_id: string, status: 'Reviewed'|'Needs Review', reviewed_by: string, review_note?: string}} body
  */
 export async function submitReview(body) {

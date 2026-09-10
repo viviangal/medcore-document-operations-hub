@@ -6,9 +6,9 @@
 // This server is the only layer that is allowed to know the n8n shared secret,
 // and the only layer that adds the x-api-key header.
 //
-// MILESTONE 2: GET /documents is connected to n8n. POST /process-document and
-// POST /review remain unconnected NOT_CONFIGURED stubs until their own
-// milestones (SPEC.md section 7).
+// MILESTONE 3: GET /documents and POST /process-document are connected to n8n.
+// POST /review remains an unconnected NOT_CONFIGURED stub until its own
+// milestone (SPEC.md section 7).
 
 import express from 'express'
 import dotenv from 'dotenv'
@@ -70,7 +70,7 @@ app.get('/api/health', (_req, res) => {
     status: 'ok',
     endpoints: {
       documents: n8nConfigured ? 'live' : 'not-configured',
-      process_document: 'mock',
+      process_document: n8nConfigured ? 'live' : 'not-configured',
       review: 'mock'
     },
     // Booleans only. Never the values themselves.
@@ -159,11 +159,82 @@ app.get('/api/documents', async (_req, res) => {
   return res.json(normalizeDocuments(payload))
 })
 
-// POST /process-document — step 2. Not connected yet.
-app.post('/api/process-document', (_req, res) => {
-  // TODO (milestone 3): forward the contract body to n8n with the x-api-key
-  // header and a 90 second timeout.
-  return notConfigured(res)
+// POST /process-document — step 2 of the connection order in SPEC.md section 7.
+// Transparent proxy: the request body from the frontend is forwarded to n8n
+// unchanged, and n8n's response (body + status) is handed back unchanged. n8n
+// owns all validation and the extracted-field shape (CONTRACT.md section 2).
+app.post('/api/process-document', async (req, res) => {
+  if (!n8nConfigured) {
+    return notConfigured(res)
+  }
+
+  let response
+  try {
+    response = await callN8n(n8nConfig.processPath, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body ?? {})
+    })
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.error(`[server] POST /process-document timed out after ${n8nConfig.timeoutMs}ms`)
+      return sendUpstreamError(res, {
+        status: 504,
+        error_code: 'TIMEOUT',
+        message: 'The document service did not respond in time.'
+      })
+    }
+    console.error('[server] POST /process-document connection error:', error.message)
+    return sendUpstreamError(res, {
+      status: 502,
+      error_code: 'SERVICE_UNAVAILABLE',
+      message: 'The document service could not be reached.'
+    })
+  }
+
+  let payload
+  try {
+    payload = await response.json()
+  } catch (error) {
+    console.error('[server] POST /process-document returned invalid JSON:', error.message)
+    return sendUpstreamError(res, {
+      status: 502,
+      error_code: 'SERVER_ERROR',
+      message: 'The document service returned an unexpected response.'
+    })
+  }
+
+  if (!response.ok) {
+    console.error(`[server] POST /process-document upstream status ${response.status}`)
+    // n8n reports its own error codes in the body (CONTRACT.md section 4). When
+    // it does, pass that straight through with n8n's status so the frontend can
+    // act on the code (UNSUPPORTED_FILE_TYPE, EMPTY_DOCUMENT, ...).
+    if (payload && typeof payload === 'object' && payload.error_code) {
+      return res.status(response.status).json(payload)
+    }
+    if (response.status === 401 || response.status === 403) {
+      return sendUpstreamError(res, {
+        status: 401,
+        error_code: 'UNAUTHORIZED',
+        message: 'The document service rejected the request.'
+      })
+    }
+    if (response.status >= 500) {
+      return sendUpstreamError(res, {
+        status: 502,
+        error_code: 'SERVER_ERROR',
+        message: 'The document service reported an internal problem.'
+      })
+    }
+    return sendUpstreamError(res, {
+      status: response.status,
+      error_code: 'BAD_REQUEST',
+      message: 'The document service rejected the request.'
+    })
+  }
+
+  // Success — hand the n8n response back unchanged (CONTRACT.md section 2).
+  return res.status(response.status).json(payload)
 })
 
 // POST /review — step 3. Not connected yet.
@@ -193,7 +264,6 @@ app.use((error, _req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`[server] MedCore API server listening on http://localhost:${PORT}`)
-  console.log(
-    `[server] documents: ${n8nConfigured ? 'live' : 'not-configured'} · process-document: mock · review: mock`
-  )
+  const upstream = n8nConfigured ? 'live' : 'not-configured'
+  console.log(`[server] documents: ${upstream} · process-document: ${upstream} · review: mock`)
 })
