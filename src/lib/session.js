@@ -5,5 +5,5 @@
 // reviewed_by, exactly as the contract expects.
 export const CURRENT_USER = {
   name: 'Operations Desk',
-  email: 'employee@medcore.example'
+  email: 'Vivian'
 }

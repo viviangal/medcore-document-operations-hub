@@ -32,6 +32,8 @@ export default function DocumentDetail() {
   // leaves the previous status untouched (SPEC.md F6).
   async function sendReview() {
     if (savingRef.current) return
+    // A document that is already Reviewed cannot be reviewed again.
+    if (record?.status === 'Reviewed') return
     savingRef.current = true
     setSaving(true)
     setReviewError(null)
@@ -96,6 +98,7 @@ export default function DocumentDetail() {
   }
 
   const remaining = REVIEW_NOTE_MAX_LENGTH - note.length
+  const isReviewed = record.status === 'Reviewed'
 
   return (
     <div className="screen">
@@ -104,14 +107,14 @@ export default function DocumentDetail() {
           Document log
         </Link>
         <span aria-hidden="true">/</span>
-        <span>{record.document_id}</span>
+        <span>{record.file_name}</span>
       </nav>
 
       <header className="screen__header">
         <div>
           <h1 className="screen__title">{record.file_name}</h1>
           <p className="screen__subtitle">
-            Received {formatTimestamp(record.received_at)} · Document ID {record.document_id}
+            Received {formatTimestamp(record.received_at)}
           </p>
         </div>
         <div className="screen__actions">
@@ -135,36 +138,45 @@ export default function DocumentDetail() {
               <h2 className="card__title">Human review</h2>
             </div>
             <div className="card__body">
-              {confirmation && <SuccessBanner title="Review recorded" message={confirmation} />}
+              {(confirmation || isReviewed) && (
+                <SuccessBanner
+                  title="Review recorded"
+                  message={confirmation ?? 'This document is marked as reviewed.'}
+                />
+              )}
               <ErrorBanner error={reviewError} onRetry={sendReview} retryLabel="Try again" />
 
-              <label className="field-label" htmlFor="review-note">
-                Review note <span className="field-label__optional">(optional)</span>
-              </label>
-              <textarea
-                id="review-note"
-                className="input input--textarea"
-                rows={4}
-                maxLength={REVIEW_NOTE_MAX_LENGTH}
-                value={note}
-                disabled={saving}
-                placeholder="Add a short note for the record"
-                onChange={(event) => setNote(event.target.value.slice(0, REVIEW_NOTE_MAX_LENGTH))}
-              />
-              <p className={`char-count${remaining <= 20 ? ' char-count--low' : ''}`}>
-                {remaining} of {REVIEW_NOTE_MAX_LENGTH} characters remaining
-              </p>
+              {!isReviewed && (
+                <>
+                  <label className="field-label" htmlFor="review-note">
+                    Review note <span className="field-label__optional">(optional)</span>
+                  </label>
+                  <textarea
+                    id="review-note"
+                    className="input input--textarea"
+                    rows={4}
+                    maxLength={REVIEW_NOTE_MAX_LENGTH}
+                    value={note}
+                    disabled={saving}
+                    placeholder="Add a short note for the record"
+                    onChange={(event) => setNote(event.target.value.slice(0, REVIEW_NOTE_MAX_LENGTH))}
+                  />
+                  <p className={`char-count${remaining <= 20 ? ' char-count--low' : ''}`}>
+                    {remaining} of {REVIEW_NOTE_MAX_LENGTH} characters remaining
+                  </p>
 
-              <div className="review-actions">
-                <button
-                  type="button"
-                  className="button button--primary"
-                  onClick={sendReview}
-                  disabled={saving || record.status === 'Reviewed'}
-                >
-                  {saving ? 'Saving…' : 'Mark as reviewed'}
-                </button>
-              </div>
+                  <div className="review-actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={sendReview}
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving…' : 'Mark as reviewed'}
+                    </button>
+                  </div>
+                </>
+              )}
 
               {record.reviewed_by && (
                 <dl className="mini-list mini-list--bordered">
@@ -189,10 +201,6 @@ export default function DocumentDetail() {
             </div>
             <div className="card__body">
               <dl className="mini-list">
-                <div>
-                  <dt>Document ID</dt>
-                  <dd>{record.document_id}</dd>
-                </div>
                 <div>
                   <dt>File name</dt>
                   <dd>{record.file_name}</dd>
