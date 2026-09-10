@@ -269,7 +269,6 @@ Example:
 
 {
   "document_id": "exec-1043",
-  "status": "Reviewed",
   "reviewed_by": "employee@medcore.example",
   "review_note": "Payment approved"
 }
@@ -280,14 +279,6 @@ Example:
 Type: string
 
 Must match an existing Document ID in Google Sheets.
-
-### status
-Type: string
-
-Allowed values:
-
-- Reviewed
-- Needs Review
 
 ### reviewed_by
 Type: string
@@ -302,6 +293,17 @@ Optional.
 Maximum length:
 
 200 characters.
+
+## Effect
+
+On success n8n updates the matching Google Sheet row, keyed by Document ID:
+
+- Status = Reviewed
+- Reviewed By = reviewed_by
+- Review Note = review_note
+
+The review action only ever sets Status to Reviewed. There is no request field
+that sets any other status.
 
 ---
 
@@ -318,7 +320,7 @@ Example:
   "document_id": "exec-1043"
 }
 
-If no matching document exists, n8n should return HTTP 404.
+If no matching document exists, n8n returns HTTP 404.
 
 ---
 

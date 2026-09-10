@@ -20,7 +20,6 @@ export default function DocumentDetail() {
   const [saving, setSaving] = useState(false)
   const [reviewError, setReviewError] = useState(null)
   const [confirmation, setConfirmation] = useState(null)
-  // Prevents a double click from sending two review updates.
   const savingRef = useRef(false)
 
   const record = useMemo(
@@ -28,7 +27,10 @@ export default function DocumentDetail() {
     [documents, documentId]
   )
 
-  async function sendReview(nextStatus) {
+  // savingRef prevents a double click from sending two review updates. The local
+  // document state is only touched after n8n accepts the review, so a failure
+  // leaves the previous status untouched (SPEC.md F6).
+  async function sendReview() {
     if (savingRef.current) return
     savingRef.current = true
     setSaving(true)
@@ -40,21 +42,18 @@ export default function DocumentDetail() {
     try {
       await submitReview({
         document_id: documentId,
-        status: nextStatus,
         reviewed_by: CURRENT_USER.email,
         review_note: trimmedNote
       })
-      // The displayed status updates once the review is accepted (SPEC.md F6).
+      // n8n has written Status = Reviewed to the Google Sheet; mirror it locally
+      // so the screen updates without waiting for a full reload. A later
+      // GET /documents refresh carries the same reviewed_by / review_note.
       applyReview(documentId, {
-        status: nextStatus,
+        status: 'Reviewed',
         reviewed_by: CURRENT_USER.email,
         review_note: trimmedNote
       })
-      setConfirmation(
-        nextStatus === 'Reviewed'
-          ? 'This document is marked as reviewed.'
-          : 'This document is flagged as needing review.'
-      )
+      setConfirmation('This document is marked as reviewed.')
       setNote('')
     } catch (caught) {
       setReviewError(toAppError(caught))
@@ -137,11 +136,7 @@ export default function DocumentDetail() {
             </div>
             <div className="card__body">
               {confirmation && <SuccessBanner title="Review recorded" message={confirmation} />}
-              <ErrorBanner
-                error={reviewError}
-                onRetry={() => sendReview('Reviewed')}
-                retryLabel="Try again"
-              />
+              <ErrorBanner error={reviewError} onRetry={sendReview} retryLabel="Try again" />
 
               <label className="field-label" htmlFor="review-note">
                 Review note <span className="field-label__optional">(optional)</span>
@@ -164,18 +159,10 @@ export default function DocumentDetail() {
                 <button
                   type="button"
                   className="button button--primary"
-                  onClick={() => sendReview('Reviewed')}
+                  onClick={sendReview}
                   disabled={saving || record.status === 'Reviewed'}
                 >
                   {saving ? 'Saving…' : 'Mark as reviewed'}
-                </button>
-                <button
-                  type="button"
-                  className="button button--secondary"
-                  onClick={() => sendReview('Needs Review')}
-                  disabled={saving || record.status === 'Needs Review'}
-                >
-                  Flag as needs review
                 </button>
               </div>
 

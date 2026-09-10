@@ -6,22 +6,15 @@
 // Endpoints are connected one at a time, in the order given in SPEC.md section 7:
 //   1. GET  /documents        <- connected (milestone 2)
 //   2. POST /process-document <- connected (milestone 3 backend, milestone 4 frontend)
-//   3. POST /review           <- still mocked
+//   3. POST /review           <- connected (milestone 5)
 //
 // The browser calls the Express server. The Express server is the only place
 // that knows the n8n shared secret. No secret exists in this file.
 
 import { REQUEST_TIMEOUT_MS, REVIEW_NOTE_MAX_LENGTH } from '../lib/constants.js'
 import { createAppError, errorFromStatus, toAppError } from '../lib/errors.js'
-import { mockReview } from './mock.js'
 
 const API_BASE = '/api'
-
-// POST /review is not gated by an env flag: it stays mocked until its own
-// milestone regardless of any toggle.
-export function isReviewMocked() {
-  return true
-}
 
 // --- real transport -----------------------------------------------------
 
@@ -89,15 +82,22 @@ export async function processDocument(body) {
 }
 
 /**
- * POST /review — records a human review.
- * Still mocked (milestone 5 connects this). See isReviewMocked().
- * @param {{document_id: string, status: 'Reviewed'|'Needs Review', reviewed_by: string, review_note?: string}} body
+ * POST /review — records a human review. The Express server forwards it to n8n
+ * with the x-api-key header; n8n updates the matching Google Sheet row
+ * (Status = Reviewed, Reviewed By, Review Note) and returns
+ * { status: 'updated', document_id } (CONTRACT.md sections 6-7). A missing row
+ * surfaces here as a NOT_FOUND AppError through request()'s error handling.
+ * @param {{document_id: string, reviewed_by: string, review_note?: string}} body
  */
 export async function submitReview(body) {
   const payload = {
-    ...body,
+    document_id: body.document_id,
+    reviewed_by: body.reviewed_by,
     review_note: (body.review_note ?? '').slice(0, REVIEW_NOTE_MAX_LENGTH)
   }
 
-  return mockReview(payload)
+  return request('/review', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
 }

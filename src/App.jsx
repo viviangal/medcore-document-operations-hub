@@ -1,5 +1,4 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import { isReviewMocked } from './api/client.js'
 import { CURRENT_USER } from './lib/session.js'
 import Dashboard from './screens/Dashboard.jsx'
 import DocumentDetail from './screens/DocumentDetail.jsx'
@@ -46,13 +45,6 @@ export default function App() {
         </aside>
 
         <div className="main">
-          {isReviewMocked() && (
-            <div className="mode-strip" role="status">
-              The document log and document processing are connected to the document service. Marking
-              documents as reviewed still uses demo data for now.
-            </div>
-          )}
-
           <main className="content">
             <Routes>
               <Route path="/" element={<Dashboard />} />

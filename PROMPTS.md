@@ -278,3 +278,84 @@ document to the production n8n webhook (Sheets row + Gmail + Drive). The
 Express→n8n leg is already proven end-to-end from milestone 3; this change only
 swaps which function the frontend calls. The dev server must be restarted (and
 Vite started) to load the new frontend code. `POST /api/review` remains mocked.
+
+---
+
+## 6 — Milestone 5: connect POST /review (Mark as reviewed)
+
+**Prompt**
+
+Connect the "Mark as reviewed" flow to the real n8n Review Document API.
+`POST /review` takes `{ document_id, reviewed_by, review_note? }`, uses the
+existing server-side `x-api-key` header auth, and on success updates the matching
+Google Sheet row (Status = Reviewed, Reviewed By, Review Note). Add/complete the
+Express `POST /api/review` route as a server-side forwarder; keep the secret
+server-side; follow the existing env-var naming; wire `submitReview()` in
+`src/api/client.js` to `POST /api/review` instead of the mock; cap the note at
+200 chars; block duplicate submissions; on success update local UI state and show
+a clear confirmation; on failure preserve the previous status and show a useful
+error; keep the reviewed state correct after a `GET /documents` refresh; reuse
+the established timeout/error conventions; don't break the log, upload,
+`GET /documents`, or `POST /process-document`.
+
+**Decision**
+
+The real n8n `/review` only sets Status = Reviewed — it has no "Needs Review"
+path. Asked how to treat the existing "Flag as needs review" button; the answer
+was **remove it**. "Needs Review" remains a valid document status coming from the
+automation via `GET /documents`; only the user-triggered flag action is gone.
+
+**Result**
+
+- `server/server.js`: `POST /api/review` is now a transparent proxy built on the
+  existing `callN8n()` helper (same `x-api-key` header, `Content-Type:
+  application/json`, and `n8nConfig.timeoutMs` as the other routes; path from
+  `N8N_REVIEW_PATH`, already in config). It forwards `req.body` verbatim and
+  returns n8n's JSON + status unchanged on success. Failure mapping matches
+  `POST /api/process-document`: `AbortError` → 504 `TIMEOUT`, network throw → 502
+  `SERVICE_UNAVAILABLE`, unparseable body / n8n 5xx → 502 `SERVER_ERROR`,
+  401/403 → 401 `UNAUTHORIZED`, structured `error_code` body passed straight
+  through — plus a review-specific **404 → `NOT_FOUND`** branch (no matching Sheet
+  row, CONTRACT.md section 7). Unset `N8N_BASE_URL` / `N8N_SECRET` still yields
+  503 `NOT_CONFIGURED`.
+- `server/server.js`: `/api/health` and the startup log now report
+  `review: "live" | "not-configured"` (was always `"mock"`); header comment
+  updated to milestone 5.
+- `src/api/client.js`: `submitReview(body)` now calls
+  `request('/review', { method: 'POST', body: … })` — same helper as
+  `getDocuments()` / `processDocument()`, inheriting the 90 s `AbortController`
+  and the shared error handling. It sends only
+  `{ document_id, reviewed_by, review_note }` with `review_note` sliced to
+  `REVIEW_NOTE_MAX_LENGTH` (200). The `mockReview` import is dropped;
+  `isReviewMocked()` is removed.
+- `src/App.jsx`: the mode strip (which said review used demo data) and its
+  `isReviewMocked` import are removed — every endpoint is live now.
+- `src/screens/DocumentDetail.jsx`: `sendReview(nextStatus)` is now
+  `sendReview()` — always Reviewed. The "Flag as needs review" button is removed.
+  The `savingRef` + `saving` double-submit guard is unchanged. Local state is
+  updated via `applyReview()` only after n8n accepts the review, so a failure
+  leaves the previous status intact; the success banner reads "This document is
+  marked as reviewed." The existing "Last reviewed by" / "Note on record" block
+  and the header `StatusBadge` already reflect the patched record.
+- `CONTRACT.md` sections 6-7: request body no longer lists `status`; added an
+  "Effect" note that the review action only ever sets Status = Reviewed.
+- `.env.example`: comment block rewritten — all three paths are connected now;
+  `N8N_REVIEW_PATH=/review` was already present, no secret added.
+- Not touched: `server/normalizeDocument.js` (already maps `Reviewed By` /
+  `Review Note`, so a `GET /documents` refresh keeps reviewed state — item 11),
+  `Upload.jsx`, `getDocuments()`, `processDocument()`, `Dashboard.jsx`,
+  `mock.js` (`mockReview` left in place, now unused, like `mockProcessDocument`).
+
+**Checks run** (safe, local — no production review POST)
+
+- `node --check server/server.js`
+- `npm run build` — passes
+- `grep` over `src/`: no `mockReview` / `isReviewMocked` references remain; no
+  `N8N_SECRET` / `x-api-key` / `N8N_BASE_URL` in frontend code
+
+**Remaining**
+
+No end-to-end click-through against production: a real `POST /review` writes to
+the live Google Sheet. The Express→n8n leg uses the same proven `callN8n()`
+helper as milestones 2-3. The dev server must be restarted to load the new
+route.
