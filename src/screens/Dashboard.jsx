@@ -4,7 +4,7 @@ import { StatusBadge, TypeTag, UrgencyBadge } from '../components/Badges.jsx'
 import { EmptyState, ErrorBanner, LoadingRows } from '../components/Feedback.jsx'
 import Value from '../components/Value.jsx'
 import { DEPARTMENTS, DOCUMENT_TYPES, STATUSES, URGENCY_LEVELS } from '../lib/constants.js'
-import { capitalize, formatTimestamp } from '../lib/format.js'
+import { capitalize, formatDate, formatTimestamp } from '../lib/format.js'
 import { useDocuments } from '../state/DocumentsContext.jsx'
 
 const INITIAL_FILTERS = {
@@ -23,12 +23,57 @@ function matchesSearch(doc, term) {
   return haystack.includes(term)
 }
 
+// Deadline arrives as a human-readable string from the automation, either a
+// plain date (CONTRACT.md's own example: "12 March 2026") or that date
+// embedded in a longer sentence (e.g. "Valid through 13 September 2026",
+// "...requested by 10:00 on 7 September 2026"), or the placeholder
+// "Not found". This is text extraction for sorting only — it never changes
+// what is displayed, and it never invents a date that isn't written in the
+// string. Anything that still doesn't yield a date is pushed to the bottom
+// in both directions.
+const MONTH_NAMES =
+  'January|February|March|April|May|June|July|August|September|October|November|December'
+const EMBEDDED_DEADLINE = new RegExp(
+  `(?:(\\d{1,2}:\\d{2})\\s+on\\s+)?(\\d{1,2}\\s+(?:${MONTH_NAMES})\\s+\\d{4})`,
+  'i'
+)
+
+function parseDeadline(value) {
+  if (!value || typeof value !== 'string') return null
+  const direct = new Date(value)
+  if (!Number.isNaN(direct.getTime())) return direct
+  const match = value.match(EMBEDDED_DEADLINE)
+  if (!match) return null
+  const [, time, datePart] = match
+  const parsed = new Date(time ? `${datePart} ${time}` : datePart)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+// Sorts a copy of `list` by deadline; documents without a parseable deadline
+// keep their relative order and stay at the bottom in either direction. This
+// is display ordering only — it does not touch the documents themselves.
+function sortByDeadline(list, direction) {
+  return list
+    .map((doc, index) => ({ doc, index, date: parseDeadline(doc.deadline) }))
+    .sort((a, b) => {
+      if (!a.date && !b.date) return a.index - b.index
+      if (!a.date) return 1
+      if (!b.date) return -1
+      const diff = a.date.getTime() - b.date.getTime()
+      return direction === 'desc' ? -diff : diff
+    })
+    .map((entry) => entry.doc)
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { documents, status, error, lastUpdated, refresh } = useDocuments()
 
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState(INITIAL_FILTERS)
+  // null | 'asc' | 'desc'. First click sorts earliest-first, second click
+  // latest-first, and it keeps toggling from there.
+  const [deadlineSort, setDeadlineSort] = useState(null)
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -43,6 +88,13 @@ export default function Dashboard() {
     )
   }, [documents, search, filters])
 
+  // Deadline sort is applied on top of the search/filter result, so it never
+  // resets or fights with them.
+  const sortedVisible = useMemo(() => {
+    if (!deadlineSort) return visible
+    return sortByDeadline(visible, deadlineSort)
+  }, [visible, deadlineSort])
+
   const filtersActive =
     search.trim() !== '' || Object.values(filters).some((value) => value !== 'all')
 
@@ -55,10 +107,21 @@ export default function Dashboard() {
     setFilters(INITIAL_FILTERS)
   }
 
+  function toggleDeadlineSort() {
+    setDeadlineSort((current) => (current === 'asc' ? 'desc' : 'asc'))
+  }
+
   const counts = useMemo(
     () => ({
       total: documents.length,
-      needsReview: documents.filter((doc) => doc.status === 'Needs Review').length,
+      // Awaiting review = automated processing has finished but a person has
+      // not yet marked it Reviewed. "Processed" is the automation's normal
+      // finished state; "Needs Review" is the flagged state it may also
+      // return. Both count; "Reviewed" does not. Computed from the current
+      // documents every render, never hard-coded.
+      awaitingReview: documents.filter(
+        (doc) => doc.status === 'Processed' || doc.status === 'Needs Review'
+      ).length,
       high: documents.filter((doc) => doc.urgency === 'High').length
     }),
     [documents]
@@ -96,7 +159,7 @@ export default function Dashboard() {
           <span className="stat__label">Documents in log</span>
         </div>
         <div className="stat">
-          <span className="stat__value">{counts.needsReview}</span>
+          <span className="stat__value">{counts.awaitingReview}</span>
           <span className="stat__label">Awaiting review</span>
         </div>
         <div className="stat">
@@ -203,11 +266,41 @@ export default function Dashboard() {
                     <th scope="col">Sender / company</th>
                     <th scope="col">Urgency</th>
                     <th scope="col">Department</th>
+                    <th
+                      scope="col"
+                      aria-sort={
+                        deadlineSort === 'asc'
+                          ? 'ascending'
+                          : deadlineSort === 'desc'
+                            ? 'descending'
+                            : 'none'
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="table__sort"
+                        onClick={toggleDeadlineSort}
+                        aria-label={`Sort by deadline, ${
+                          deadlineSort === 'asc'
+                            ? 'earliest first, click for latest first'
+                            : deadlineSort === 'desc'
+                              ? 'latest first, click for earliest first'
+                              : 'click to sort by earliest first'
+                        }`}
+                      >
+                        Deadline
+                        {deadlineSort && (
+                          <span className="table__sort-icon" aria-hidden="true">
+                            {deadlineSort === 'asc' ? '▲' : '▼'}
+                          </span>
+                        )}
+                      </button>
+                    </th>
                     <th scope="col">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((doc, index) => (
+                  {sortedVisible.map((doc, index) => (
                     <tr
                       // document_id is not guaranteed unique in the live data (a Google
                       // Sheet row-number issue on the n8n side). A composite key keeps
@@ -225,10 +318,9 @@ export default function Dashboard() {
                         }
                       }}
                     >
-                      <td className="table__cell--muted">{formatTimestamp(doc.received_at)}</td>
+                      <td className="table__cell--muted">{formatDate(doc.received_at)}</td>
                       <td>
                         <span className="table__primary">{doc.file_name}</span>
-                        <span className="table__secondary">{doc.summary}</span>
                       </td>
                       <td>
                         <TypeTag value={doc.document_type} />
@@ -241,6 +333,9 @@ export default function Dashboard() {
                       </td>
                       <td>
                         <Value>{doc.department}</Value>
+                      </td>
+                      <td className="table__cell--muted">
+                        <Value>{doc.deadline}</Value>
                       </td>
                       <td>
                         <StatusBadge value={doc.status} />

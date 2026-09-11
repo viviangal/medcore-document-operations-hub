@@ -7,7 +7,7 @@ import { EmptyState, ErrorBanner, LoadingRows, SuccessBanner } from '../componen
 import Value from '../components/Value.jsx'
 import { REVIEW_NOTE_MAX_LENGTH } from '../lib/constants.js'
 import { toAppError } from '../lib/errors.js'
-import { formatTimestamp } from '../lib/format.js'
+import { formatDate } from '../lib/format.js'
 import { CURRENT_USER } from '../lib/session.js'
 import { useDocuments } from '../state/DocumentsContext.jsx'
 
@@ -114,7 +114,7 @@ export default function DocumentDetail() {
         <div>
           <h1 className="screen__title">{record.file_name}</h1>
           <p className="screen__subtitle">
-            Received {formatTimestamp(record.received_at)}
+            Received {formatDate(record.received_at)}
           </p>
         </div>
         <div className="screen__actions">
@@ -207,7 +207,7 @@ export default function DocumentDetail() {
                 </div>
                 <div>
                   <dt>Received</dt>
-                  <dd>{formatTimestamp(record.received_at)}</dd>
+                  <dd>{formatDate(record.received_at)}</dd>
                 </div>
                 <div>
                   <dt>Status</dt>

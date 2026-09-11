@@ -537,11 +537,33 @@ a {
   white-space: nowrap;
 }
 
+.table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.table__sort:hover {
+  color: var(--text);
+}
+
+.table__sort-icon {
+  font-size: 9px;
+  color: var(--primary);
+}
+
 .table th:nth-child(1) {
   width: 15%;
 }
 .table th:nth-child(2) {
-  width: 27%;
+  width: 20%;
 }
 .table th:nth-child(3) {
   width: 9%;
@@ -557,6 +579,9 @@ a {
 }
 .table th:nth-child(7) {
   width: 12%;
+}
+.table th:nth-child(8) {
+  width: 7%;
 }
 
 .table td {

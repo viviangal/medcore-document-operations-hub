@@ -12,14 +12,14 @@ const DATE_TIME = new Intl.DateTimeFormat('en-GB', {
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
-  timeZone: 'UTC'
+  timeZone: 'Asia/Jerusalem'
 })
 
 const DATE_ONLY = new Intl.DateTimeFormat('en-GB', {
   day: '2-digit',
   month: 'short',
   year: 'numeric',
-  timeZone: 'UTC'
+  timeZone: 'Asia/Jerusalem'
 })
 
 // received_at arrives as an ISO timestamp. Anything unparseable is shown as-is
@@ -28,7 +28,7 @@ export function formatTimestamp(value) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return `${DATE_TIME.format(date)} UTC`
+  return DATE_TIME.format(date)
 }
 
 export function formatDate(value) {
