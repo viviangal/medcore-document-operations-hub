@@ -138,11 +138,14 @@ app.get('/api/documents', async (_req, res) => {
 
   if (!response.ok) {
     console.error(`[server] GET /documents upstream status ${response.status}`)
+    // GET /documents has no per-ID lookup, so a 404 here means the n8n
+    // endpoint itself is missing or unpublished, not that one document is
+    // gone (that case only applies to POST /review, which keeps NOT_FOUND).
     if (response.status === 404) {
       return sendUpstreamError(res, {
-        status: 404,
-        error_code: 'NOT_FOUND',
-        message: 'The document service reported nothing found.'
+        status: 502,
+        error_code: 'SERVICE_UNAVAILABLE',
+        message: 'The document service is currently unavailable.'
       })
     }
     if (response.status >= 500) {
