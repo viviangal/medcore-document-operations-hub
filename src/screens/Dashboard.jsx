@@ -185,6 +185,9 @@ export default function Dashboard() {
       awaitingReview: documents.filter(
         (doc) => doc.status === 'Processed' || doc.status === 'Needs Review'
       ).length,
+      // Needs review is a subset of Awaiting review above: only the documents
+      // explicitly flagged Needs Review, not the ordinary Processed ones.
+      needsReview: documents.filter((doc) => doc.status === 'Needs Review').length,
       high: documents.filter((doc) => doc.urgency === 'High').length
     }),
     [documents]
@@ -232,6 +235,10 @@ export default function Dashboard() {
         <div className="stat">
           <span className="stat__value">{counts.awaitingReview}</span>
           <span className="stat__label">Awaiting review</span>
+        </div>
+        <div className="stat">
+          <span className="stat__value">{counts.needsReview}</span>
+          <span className="stat__label">Needs review</span>
         </div>
         <div className="stat">
           <span className="stat__value">{counts.high}</span>

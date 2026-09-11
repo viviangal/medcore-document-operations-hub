@@ -560,7 +560,7 @@ a {
 }
 
 .table th:nth-child(1) {
-  width: 15%;
+  width: 10%;
 }
 .table th:nth-child(2) {
   width: 20%;
@@ -581,7 +581,7 @@ a {
   width: 12%;
 }
 .table th:nth-child(8) {
-  width: 7%;
+  width: 12%;
 }
 
 .table td {
