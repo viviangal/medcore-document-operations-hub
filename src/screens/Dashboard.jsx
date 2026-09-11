@@ -65,6 +65,63 @@ function sortByDeadline(list, direction) {
     .map((entry) => entry.doc)
 }
 
+// Only the fields listed for the CSV export, in the required column order.
+// Each getter reads the raw record field — the same value already shown in
+// the table — nothing is re-derived or invented for the export.
+const CSV_COLUMNS = [
+  ['Received', (doc) => formatDate(doc.received_at)],
+  ['File Name', (doc) => doc.file_name],
+  ['Document Type', (doc) => doc.document_type],
+  ['Sender / Company', (doc) => doc.sender_or_company],
+  ['Summary', (doc) => doc.summary],
+  ['Requested Action', (doc) => doc.requested_action],
+  ['Deadline', (doc) => doc.deadline],
+  ['Urgency', (doc) => doc.urgency],
+  ['Department', (doc) => doc.department],
+  ['Status', (doc) => doc.status],
+  ['Reviewed By', (doc) => doc.reviewed_by],
+  ['Review Note', (doc) => doc.review_note],
+  ['File Link', (doc) => doc.file_link]
+]
+
+// RFC 4180 escaping: a value containing a comma, quote or line break is
+// wrapped in quotes with any inner quote doubled. A missing value becomes
+// "Not provided" (the same wording Value already uses on screen) instead of
+// an empty cell or the literal word undefined/null.
+function csvCell(value) {
+  const text = value === null || value === undefined || value === '' ? 'Not provided' : String(value)
+  if (!/["\r\n,]/.test(text)) return text
+  return '"' + text.replace(/"/g, '""') + '"'
+}
+
+function buildCsv(rows) {
+  const lines = [CSV_COLUMNS.map(([header]) => csvCell(header)).join(',')]
+  for (const doc of rows) {
+    lines.push(CSV_COLUMNS.map(([, getValue]) => csvCell(getValue(doc))).join(','))
+  }
+  return lines.join('\r\n')
+}
+
+// Frontend-only download: a Blob URL clicked through a throwaway <a>, no
+// server involved. The UTF-8 BOM keeps Excel from misreading the file.
+function downloadDocumentsCsv(rows) {
+  const csv = buildCsv(rows)
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const today = new Date()
+  const stamp = [today.getFullYear(), today.getMonth() + 1, today.getDate()]
+    .map((part, index) => (index === 0 ? part : String(part).padStart(2, '0')))
+    .join('-')
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `MedCore_Documents_${stamp}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { documents, status, error, lastUpdated, refresh } = useDocuments()
@@ -111,6 +168,12 @@ export default function Dashboard() {
     setDeadlineSort((current) => (current === 'asc' ? 'desc' : 'asc'))
   }
 
+  // Exports exactly the rows currently on screen: sortedVisible already has
+  // search, every filter, and the deadline sort applied.
+  function exportCsv() {
+    downloadDocumentsCsv(sortedVisible)
+  }
+
   const counts = useMemo(
     () => ({
       total: documents.length,
@@ -142,6 +205,14 @@ export default function Dashboard() {
           {lastUpdated && (
             <span className="screen__meta">Updated {formatTimestamp(lastUpdated.toISOString())}</span>
           )}
+          <button
+            type="button"
+            className="button button--secondary"
+            onClick={exportCsv}
+            disabled={sortedVisible.length === 0}
+          >
+            Export CSV
+          </button>
           <button
             type="button"
             className="button button--secondary"
