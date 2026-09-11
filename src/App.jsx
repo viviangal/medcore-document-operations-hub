@@ -1,5 +1,6 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { CURRENT_USER } from './lib/session.js'
+import Analytics from './screens/Analytics.jsx'
 import Dashboard from './screens/Dashboard.jsx'
 import DocumentDetail from './screens/DocumentDetail.jsx'
 import Upload from './screens/Upload.jsx'
@@ -7,7 +8,8 @@ import { DocumentsProvider } from './state/DocumentsContext.jsx'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Document log', end: true },
-  { to: '/upload', label: 'Upload document', end: false }
+  { to: '/upload', label: 'Upload document', end: false },
+  { to: '/analytics', label: 'Analytics', end: false }
 ]
 
 export default function App() {
@@ -49,6 +51,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/upload" element={<Upload />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/documents/:documentId" element={<DocumentDetail />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
