@@ -41,7 +41,7 @@ const CATALOG = {
   UNAUTHORIZED: {
     title: 'Configuration problem',
     message:
-      'The document service is not configured correctly. Nothing was sent. Please contact IT operations and quote this screen.',
+      'The document service could not authenticate. Please contact the administrator.',
     retryable: false,
     keepFile: true
   },

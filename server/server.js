@@ -45,6 +45,20 @@ function sendUpstreamError(res, { status, error_code, message }) {
   return res.status(status).json({ status: 'error', error_code, message })
 }
 
+// A 401/403 from n8n always means the shared secret n8n received was missing
+// or wrong. Checked by every route from the raw response status, before the
+// body is parsed, so this is detected even when n8n's rejection body isn't
+// valid JSON (the prior bug: a non-JSON 401/403 body fell through to the
+// generic SERVER_ERROR branch instead). The message never echoes n8n's own
+// text, headers, or the secret itself.
+function respondUnauthorized(res) {
+  return sendUpstreamError(res, {
+    status: 401,
+    error_code: 'UNAUTHORIZED',
+    message: 'The document service could not authenticate.'
+  })
+}
+
 // Calls n8n with the shared secret and a hard timeout. The browser never sees
 // this function or the secret it uses.
 async function callN8n(path, options = {}) {
@@ -105,6 +119,11 @@ app.get('/api/documents', async (_req, res) => {
     })
   }
 
+  if (response.status === 401 || response.status === 403) {
+    console.error(`[server] GET /documents upstream status ${response.status}`)
+    return respondUnauthorized(res)
+  }
+
   let payload
   try {
     payload = await response.json()
@@ -119,13 +138,6 @@ app.get('/api/documents', async (_req, res) => {
 
   if (!response.ok) {
     console.error(`[server] GET /documents upstream status ${response.status}`)
-    if (response.status === 401 || response.status === 403) {
-      return sendUpstreamError(res, {
-        status: 401,
-        error_code: 'UNAUTHORIZED',
-        message: 'The document service rejected the request.'
-      })
-    }
     if (response.status === 404) {
       return sendUpstreamError(res, {
         status: 404,
@@ -192,6 +204,11 @@ app.post('/api/process-document', async (req, res) => {
     })
   }
 
+  if (response.status === 401 || response.status === 403) {
+    console.error(`[server] POST /process-document upstream status ${response.status}`)
+    return respondUnauthorized(res)
+  }
+
   let payload
   try {
     payload = await response.json()
@@ -211,13 +228,6 @@ app.post('/api/process-document', async (req, res) => {
     // act on the code (UNSUPPORTED_FILE_TYPE, EMPTY_DOCUMENT, ...).
     if (payload && typeof payload === 'object' && payload.error_code) {
       return res.status(response.status).json(payload)
-    }
-    if (response.status === 401 || response.status === 403) {
-      return sendUpstreamError(res, {
-        status: 401,
-        error_code: 'UNAUTHORIZED',
-        message: 'The document service rejected the request.'
-      })
     }
     if (response.status >= 500) {
       return sendUpstreamError(res, {
@@ -272,6 +282,11 @@ app.post('/api/review', async (req, res) => {
     })
   }
 
+  if (response.status === 401 || response.status === 403) {
+    console.error(`[server] POST /review upstream status ${response.status}`)
+    return respondUnauthorized(res)
+  }
+
   let payload
   try {
     payload = await response.json()
@@ -289,13 +304,6 @@ app.post('/api/review', async (req, res) => {
     // If n8n reports its own error code in the body, pass it straight through.
     if (payload && typeof payload === 'object' && payload.error_code) {
       return res.status(response.status).json(payload)
-    }
-    if (response.status === 401 || response.status === 403) {
-      return sendUpstreamError(res, {
-        status: 401,
-        error_code: 'UNAUTHORIZED',
-        message: 'The document service rejected the request.'
-      })
     }
     if (response.status === 404) {
       return sendUpstreamError(res, {
