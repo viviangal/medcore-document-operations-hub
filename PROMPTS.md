@@ -155,6 +155,16 @@ Re-tested against the same live n8n data used to find the bug:
 No change to `src/api/client.js`, `server/server.js`, or the CONTRACT.md field
 shapes — this was a rendering-layer fix only.
 
+**Later re-verification (documentation clarification)**
+
+The non-unique/blank `document_id` values described in this entry and the
+previous one were a live-data condition observed at this stage of
+development (milestones 2-3), not a permanent property of the system. The
+live document data was independently re-verified before final submission and
+found to contain 0 blank Document IDs and 0 duplicate Document IDs. This does
+not change the explanation above of how the duplicate/blank values observed
+at the time caused the React key-collision symptom in the Dashboard table.
+
 ---
 
 ## 4 — Milestone 3: connect POST /process-document (backend only)
@@ -211,13 +221,16 @@ Add `N8N_PROCESS_PATH=/process-document` to `.env.example` only if missing.
 
 **Remaining**
 
-The frontend still calls the mock: `src/api/client.js` `processDocument()`
-returns `mockProcessDocument(body)` and never hits `/api/process-document`, and
-`isWriteMocked()` still returns `true`. Wiring the Upload screen to the live
-route is a deliberate separate step ("do not change the frontend yet"). A
-running dev server must be restarted to load the new route. End-to-end
-verification against the real n8n webhook is intentionally not done here — a real
-POST triggers the full production workflow (Sheets write, Gmail, Drive).
+No corrective code change was required after the implementation and checks
+above. The frontend still calls the mock: `src/api/client.js`
+`processDocument()` returns `mockProcessDocument(body)` and never hits
+`/api/process-document`, and `isWriteMocked()` still returns `true` — this is
+an intentional deferral, not a defect: wiring the Upload screen to the live
+route is a deliberate separate step ("do not change the frontend yet"), left
+for milestone 4. A running dev server must be restarted to load the new
+route. End-to-end verification against the real n8n webhook is intentionally
+not done here — a real POST triggers the full production workflow (Sheets
+write, Gmail, Drive).
 
 ---
 
@@ -273,11 +286,14 @@ text still calling process-document mocked.
 
 **Remaining**
 
-A full browser click-through of Upload was not run: it would POST a real
-document to the production n8n webhook (Sheets row + Gmail + Drive). The
-Express→n8n leg is already proven end-to-end from milestone 3; this change only
-swaps which function the frontend calls. The dev server must be restarted (and
-Vite started) to load the new frontend code. `POST /api/review` remains mocked.
+No corrective code change was required after the implementation and checks
+above. A full browser click-through of Upload was intentionally not run at
+this stage, because it would POST a real document to the production n8n
+webhook and trigger real Sheets, Gmail and Drive actions (a real Sheets row
+write, a real Gmail notification, a real Drive upload). The Express→n8n leg is
+already proven end-to-end from milestone 3; this change only swaps which
+function the frontend calls. The dev server must be restarted (and Vite
+started) to load the new frontend code. `POST /api/review` remains mocked.
 
 ---
 
@@ -359,3 +375,167 @@ No end-to-end click-through against production: a real `POST /review` writes to
 the live Google Sheet. The Express→n8n leg uses the same proven `callN8n()`
 helper as milestones 2-3. The dev server must be restarted to load the new
 route.
+
+---
+
+## 7 — GitHub Pages / direct-mode deployment architecture
+
+**Prompt**
+
+Continue deployment preparation for the existing GitHub Pages "direct mode"
+infrastructure (`.env.pages`, `src/components/DirectModeKeyBar.jsx`,
+`src/lib/directApiKey.js`, and the `isDirectMode` branch in
+`src/api/client.js`, all already present in the repository). Apply three small
+safeguards: (1) in `DocumentsContext.jsx`, do not auto-fetch documents in
+direct mode until a runtime key exists, with proxy/local behavior unchanged;
+(2) in `DirectModeKeyBar.jsx`, call `refresh()` after the runtime key is saved
+so the document log loads automatically, still storing the key only through
+the existing sessionStorage/memory helper; (3) in `client.js`, refuse every
+direct-mode network request when no runtime key is present, returning the
+existing configuration-style error instead of calling n8n. No localStorage, no
+build-time secret, no edits to the real `.env`.
+
+**Result**
+
+- `DocumentsContext.jsx`: the initial-load `useEffect` now skips `refresh()`
+  when `isDirectMode && !getDirectApiKey()`; proxy/local mode (`isDirectMode`
+  false) is unaffected.
+- `DirectModeKeyBar.jsx`: `handleSave()` calls `refresh()` (via
+  `useDocuments()`) immediately after `setDirectApiKey()`; key storage still
+  goes only through `lib/directApiKey.js`'s sessionStorage/memory helper.
+- `client.js`: `request()` now throws `createAppError('NOT_CONFIGURED')` in
+  direct mode before constructing the `AbortController` or calling `fetch`
+  whenever no runtime key exists, so n8n is never contacted without one;
+  proxy mode (`directKey` always `null`) is untouched.
+- `npm run build` and `npm run build:pages` both passed; `docs/` was left in
+  the `build:pages` state.
+
+**Verification / architectural notes**
+
+- GitHub Pages is static hosting and cannot hold `N8N_SECRET` server-side,
+  which is the reason direct mode exists at all; local mode continues to use
+  Express and the real `.env` unchanged.
+- `.env.pages` was confirmed to contain only non-secret build configuration —
+  `VITE_API_MODE=direct` and the n8n webhook base URL — no credential value.
+- The GitHub Pages build uses the repository base path
+  `/medcore-document-operations-hub/` (`vite.config.js`,
+  `base: command === 'build' ? '/medcore-document-operations-hub/' : '/'`).
+- n8n CORS for the three webhooks is restricted to
+  `https://viviangal.github.io` (confirmed directly in the sanitized workflow
+  exports' `"allowedOrigins"` value once `n8n-workflows/` was added). This is a
+  browser-origin restriction only, not authentication — `x-api-key` remains
+  the actual authentication mechanism regardless of origin.
+- Every `docs/` build in this effort was scanned for the literal demo key
+  value and for the `N8N_SECRET` / `VITE_N8N_SECRET` identifiers; none were
+  found in the built bundle.
+
+---
+
+## 8 — Direct-mode document normalization bug and correction
+
+**Prompt**
+
+Reported after the GitHub Pages deployment went live: the classroom API key is
+accepted, `GET /documents` returns all 25 records (so auth/CORS/network are
+working), and the dashboard count shows 25 — but every row renders
+blank/default values (Received: —, Type: —, Sender/Company: Not provided,
+Urgency: —, Department: Not provided, Deadline: Not provided, Status: —).
+Asked to inspect `server/server.js`, `src/api/client.js`,
+`src/state/DocumentsContext.jsx`, and any normalization helpers to determine
+the exact mismatch, then propose (not yet apply) the smallest safe fix,
+without touching n8n, reimplementing business logic, or changing proxy/local
+behavior.
+
+**Investigation**
+
+`server/normalizeDocument.js`'s own header comment states that the live n8n
+`GET /documents` endpoint currently returns raw Google Sheet column headings
+(`"Document ID"`, `"Sender / Company"`, `"Document Type"`, …), not the
+CONTRACT.md-documented snake_case shape. `server/server.js` runs every
+proxy-mode response through `normalizeDocuments()` before it reaches the
+browser (`server.js:174`). `src/api/client.js`'s `getDocuments()` returned the
+raw payload from `request('/documents')` unmodified. In proxy mode this is
+already-normalized data; in direct mode the browser calls n8n directly with no
+Express in between, so the same raw Sheet-header-keyed rows reached the UI
+unnormalized. Every field lookup in `Dashboard.jsx` / `DocumentFields.jsx`
+(`doc.document_type`, `doc.sender_or_company`, `doc.urgency`, …) is `undefined`
+against that raw shape, so each field fell back to its blank/"—"/"Not
+provided" default — while the array's length (25) was unaffected, matching
+the reported symptom exactly.
+
+**Result**
+
+- Added `src/lib/normalizeDocument.js` — a client-side duplicate of
+  `server/normalizeDocument.js`'s `HEADER_TO_FIELD` map and
+  `normalizeDocumentRow`/`normalizeDocuments` functions (field-name
+  translation only; every value still passes through unchanged, including
+  `Not found` / `No action found`). It could not be imported directly from
+  `server/`, since that module is Node-only and never bundled into the
+  browser build.
+- `src/api/client.js`: `getDocuments()` now runs the raw array through
+  `normalizeDocuments()` only when `isDirectMode` is true; proxy mode's
+  already-normalized payload is returned exactly as before.
+- No change to n8n, to `server/normalizeDocument.js`, or to any value/business
+  logic — this is a transport/shape adapter only.
+
+**Verification**
+
+`npm run build` and `npm run build:pages` both passed; `docs/` was rebuilt in
+the `build:pages` state and re-scanned for secrets (clean). This was a
+correction discovered through live GitHub Pages deployment testing — the
+mismatch was not anticipated when direct mode was first built, only surfaced
+once real n8n data was fetched by a real browser session.
+
+---
+
+## 9 — No-key authenticated-action safeguards
+
+**Prompt**
+
+Requested after direct mode was confirmed working end to end: when running in
+GitHub Pages direct mode with no runtime classroom API key present, visibly
+disable the controls that would trigger an authenticated n8n call (Dashboard
+Refresh, Upload's Send/Process button, Document Detail's Mark as reviewed),
+while leaving everything that needs no new n8n request usable (viewing
+already-loaded documents, search/filter, Analytics, Export CSV, file
+selection, existing Drive links). Proxy/local mode must be completely
+unaffected, no `localStorage`, and the existing `client.js` no-key network
+guard must not be weakened. If a small reactive mechanism is needed so sibling
+components notice a saved/cleared key immediately, implement the simplest
+version.
+
+**Result**
+
+- `src/lib/directApiKey.js`: added a small subscriber-list
+  (`subscribeDirectApiKey`) and a `useHasDirectApiKey()` hook built on React's
+  `useSyncExternalStore`. `setDirectApiKey()` (which `clearDirectApiKey()`
+  already funnels through) now notifies every subscriber after it updates
+  `sessionStorage`/memory, so any component using the hook re-renders the
+  instant the key is saved or cleared — no context provider, no polling, no
+  `localStorage`.
+- `src/screens/Dashboard.jsx`, `src/screens/Upload.jsx`,
+  `src/screens/DocumentDetail.jsx`: each computes
+  `blockedByNoKey = isDirectMode && !hasDirectKey` and adds it to the existing
+  `disabled` expression of exactly one button per screen (Refresh, Send for
+  processing, Mark as reviewed respectively), with a
+  `title="Enter the classroom API key to enable this action"` tooltip when
+  blocked. In proxy/local mode `isDirectMode` is always `false`, so
+  `blockedByNoKey` is always `false` and every affected button's behavior is
+  unchanged from before.
+- No other control (search, filters, Analytics, Export CSV, file
+  picker/drag-drop, row navigation, or the Google Drive link in
+  `DocumentFields.jsx`) was touched.
+- `npm run build` and `npm run build:pages` both passed; `docs/` was rebuilt
+  in the `build:pages` state, and the new tooltip text was confirmed present
+  in the built bundle alongside a clean secret scan.
+
+**Verification**
+
+Regression coverage across the following scenarios confirmed correct
+behavior: no-key initial state (authenticated buttons disabled), entering the
+key (buttons enable and the document log loads), document loading, upload,
+review, clearing the key (buttons disable again immediately via the reactive
+hook), disabled-action tooltips, a failed authenticated request attempted
+without a key (rejected locally by the existing `client.js` guard rather than
+reaching n8n), and re-entering the key afterward. Proxy/local mode was
+confirmed unaffected throughout.
