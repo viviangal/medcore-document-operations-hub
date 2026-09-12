@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { getDocuments } from '../api/client.js'
+import { getDocuments, isDirectMode } from '../api/client.js'
+import { getDirectApiKey } from '../lib/directApiKey.js'
 import { toAppError } from '../lib/errors.js'
 
 const DocumentsContext = createContext(null)
@@ -43,6 +44,11 @@ export function DocumentsProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    // In direct mode there is no runtime key yet on first mount until the
+    // instructor enters one in DirectModeKeyBar (which calls refresh() itself
+    // once saved) -- skip the auto-fetch so it doesn't fail with NOT_CONFIGURED.
+    // Proxy/local mode always has a key of null and is unaffected.
+    if (isDirectMode && !getDirectApiKey()) return
     refresh()
   }, [refresh])
 

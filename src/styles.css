@@ -289,6 +289,23 @@ a {
   padding: 8px 32px;
 }
 
+.direct-key-form,
+.direct-key-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.direct-key-form .input {
+  flex: 1 1 220px;
+  width: auto;
+}
+
+.content {
+  padding: 28px 32px 48px;
+  min-width: 0;
+}
 .content {
   padding: 28px 32px 48px;
   min-width: 0;

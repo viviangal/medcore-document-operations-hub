@@ -9,6 +9,7 @@
     "dev:server": "node server/server.js",
     "dev:web": "vite",
     "build": "vite build",
+    "build:pages": "vite build --mode pages",
     "preview": "vite preview"
   },
   "dependencies": {

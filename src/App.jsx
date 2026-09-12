@@ -1,5 +1,13 @@
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import { AnalyticsIcon, BrandMarkIcon, DocumentLogIcon, SidebarWave, UploadIcon } from './components/Icons.jsx'
+import { isDirectMode } from './api/client.js'
+import {
+  AnalyticsIcon,
+  BrandMarkIcon,
+  DocumentLogIcon,
+  SidebarWave,
+  UploadIcon,
+} from './components/Icons.jsx'
+import DirectModeKeyBar from './components/DirectModeKeyBar.jsx'
 import { CURRENT_USER } from './lib/session.js'
 import Analytics from './screens/Analytics.jsx'
 import Dashboard from './screens/Dashboard.jsx'
@@ -10,7 +18,7 @@ import { DocumentsProvider } from './state/DocumentsContext.jsx'
 const NAV_ITEMS = [
   { to: '/', label: 'Document log', end: true, icon: DocumentLogIcon },
   { to: '/upload', label: 'Upload document', end: false, icon: UploadIcon },
-  { to: '/analytics', label: 'Analytics', end: false, icon: AnalyticsIcon }
+  { to: '/analytics', label: 'Analytics', end: false, icon: AnalyticsIcon },
 ]
 
 // Sidebar user card — visual only. CURRENT_USER.email ("Vivian") remains the
@@ -30,6 +38,7 @@ export default function App() {
             <span className="brand__mark" aria-hidden="true">
               <BrandMarkIcon />
             </span>
+
             <span className="brand__text">
               <span className="brand__name">MedCore</span>
               <span className="brand__product">Document Operations Hub</span>
@@ -42,7 +51,9 @@ export default function App() {
                 key={item.to}
                 to={item.to}
                 end={item.end}
-                className={({ isActive }) => `nav__item${isActive ? ' nav__item--active' : ''}`}
+                className={({ isActive }) =>
+                  `nav__item${isActive ? ' nav__item--active' : ''}`
+                }
               >
                 <item.icon />
                 {item.label}
@@ -55,21 +66,30 @@ export default function App() {
               <span className="sidebar__avatar" aria-hidden="true">
                 {SIDEBAR_INITIALS}
               </span>
+
               <span className="sidebar__user-text">
-                <span className="sidebar__user-name">{SIDEBAR_DISPLAY_NAME}</span>
-                <span className="sidebar__user-role">{CURRENT_USER.name}</span>
+                <span className="sidebar__user-name">
+                  {SIDEBAR_DISPLAY_NAME}
+                </span>
+                <span className="sidebar__user-role">
+                  {CURRENT_USER.name}
+                </span>
               </span>
             </div>
+
             <p className="sidebar__tagline">
               Documents
               <br />
               People forward
             </p>
+
             <SidebarWave />
           </div>
         </aside>
 
         <div className="main">
+          {isDirectMode && <DirectModeKeyBar />}
+
           <main className="content">
             <Routes>
               <Route path="/" element={<Dashboard />} />
