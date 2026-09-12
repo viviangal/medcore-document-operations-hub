@@ -221,7 +221,7 @@ All required lecturer test cases, their results, and their supporting screenshot
 | [PROMPTS.md](PROMPTS.md) | Log of the Claude Code prompts that materially shaped this project, with results and corrections — including the development-history Document ID finding referenced in section 4. |
 | [TESTING.md](TESTING.md) | The formal manual test record required for submission. |
 | `README.md` | This file. |
-| `n8n-workflows/` | *(added as part of the final submission)* sanitized exports of the n8n workflows this application depends on, with no live credentials inside them. |
+| `n8n-workflows/` | Sanitized exports of the n8n workflows this application depends on, with no live credentials inside them. |
 
 ---
 
