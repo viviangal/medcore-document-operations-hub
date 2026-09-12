@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isDirectMode } from '../api/client.js'
 import { StatusBadge, TypeTag, UrgencyBadge } from '../components/Badges.jsx'
 import { EmptyState, ErrorBanner, LoadingRows } from '../components/Feedback.jsx'
 import Value from '../components/Value.jsx'
 import { DEPARTMENTS, DOCUMENT_TYPES, STATUSES, URGENCY_LEVELS } from '../lib/constants.js'
+import { useHasDirectApiKey } from '../lib/directApiKey.js'
 import { capitalize, formatDate, formatTimestamp } from '../lib/format.js'
 import { useDocuments } from '../state/DocumentsContext.jsx'
+
+const NO_KEY_TITLE = 'Enter the classroom API key to enable this action'
 
 const INITIAL_FILTERS = {
   urgency: 'all',
@@ -125,6 +129,8 @@ function downloadDocumentsCsv(rows) {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { documents, status, error, lastUpdated, refresh } = useDocuments()
+  const hasDirectKey = useHasDirectApiKey()
+  const blockedByNoKey = isDirectMode && !hasDirectKey
 
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState(INITIAL_FILTERS)
@@ -220,7 +226,8 @@ export default function Dashboard() {
             type="button"
             className="button button--secondary"
             onClick={refresh}
-            disabled={status === 'loading'}
+            disabled={status === 'loading' || blockedByNoKey}
+            title={blockedByNoKey ? NO_KEY_TITLE : undefined}
           >
             {status === 'loading' ? 'Refreshing…' : 'Refresh'}
           </button>

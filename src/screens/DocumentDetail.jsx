@@ -1,20 +1,25 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { submitReview } from '../api/client.js'
+import { isDirectMode, submitReview } from '../api/client.js'
 import { StatusBadge } from '../components/Badges.jsx'
 import DocumentFields from '../components/DocumentFields.jsx'
 import { EmptyState, ErrorBanner, LoadingRows, SuccessBanner } from '../components/Feedback.jsx'
 import Value from '../components/Value.jsx'
 import { REVIEW_NOTE_MAX_LENGTH } from '../lib/constants.js'
+import { useHasDirectApiKey } from '../lib/directApiKey.js'
 import { toAppError } from '../lib/errors.js'
 import { formatDate } from '../lib/format.js'
 import { CURRENT_USER } from '../lib/session.js'
 import { useDocuments } from '../state/DocumentsContext.jsx'
 
+const NO_KEY_TITLE = 'Enter the classroom API key to enable this action'
+
 export default function DocumentDetail() {
   const { documentId } = useParams()
   const navigate = useNavigate()
   const { documents, status, error, refresh, applyReview } = useDocuments()
+  const hasDirectKey = useHasDirectApiKey()
+  const blockedByNoKey = isDirectMode && !hasDirectKey
 
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -170,7 +175,8 @@ export default function DocumentDetail() {
                       type="button"
                       className="button button--primary"
                       onClick={sendReview}
-                      disabled={saving}
+                      disabled={saving || blockedByNoKey}
+                      title={blockedByNoKey ? NO_KEY_TITLE : undefined}
                     >
                       {saving ? 'Saving…' : 'Mark as reviewed'}
                     </button>

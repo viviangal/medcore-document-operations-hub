@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { processDocument } from '../api/client.js'
+import { isDirectMode, processDocument } from '../api/client.js'
 import DocumentFields from '../components/DocumentFields.jsx'
 import { ErrorBanner, SuccessBanner } from '../components/Feedback.jsx'
 import { ACCEPTED_EXTENSIONS, MAX_FILE_MB } from '../lib/constants.js'
+import { useHasDirectApiKey } from '../lib/directApiKey.js'
 import { toAppError } from '../lib/errors.js'
 import { readFileAsBase64, resolveMimeType, validateFile } from '../lib/fileValidation.js'
 import { formatFileSize } from '../lib/format.js'
 import { CURRENT_USER } from '../lib/session.js'
 import { useDocuments } from '../state/DocumentsContext.jsx'
+
+const NO_KEY_TITLE = 'Enter the classroom API key to enable this action'
 
 const PHASE = {
   IDLE: 'idle',
@@ -19,6 +22,8 @@ const PHASE = {
 
 export default function Upload() {
   const { refresh } = useDocuments()
+  const hasDirectKey = useHasDirectApiKey()
+  const blockedByNoKey = isDirectMode && !hasDirectKey
   const inputRef = useRef(null)
   // Guards against a second submission from a double click, which would create
   // a second spreadsheet row (SPEC.md F2).
@@ -189,7 +194,8 @@ export default function Upload() {
               type="button"
               className="button button--primary"
               onClick={handleSend}
-              disabled={!file || isProcessing}
+              disabled={!file || isProcessing || blockedByNoKey}
+              title={blockedByNoKey ? NO_KEY_TITLE : undefined}
             >
               {isProcessing ? 'Processing…' : 'Send for processing'}
             </button>
