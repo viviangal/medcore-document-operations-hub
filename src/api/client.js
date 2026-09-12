@@ -14,6 +14,7 @@
 import { REQUEST_TIMEOUT_MS, REVIEW_NOTE_MAX_LENGTH } from '../lib/constants.js'
 import { createAppError, errorFromStatus, toAppError } from '../lib/errors.js'
 import { getDirectApiKey } from '../lib/directApiKey.js'
+import { normalizeDocuments } from '../lib/normalizeDocument.js'
 
 // Two API modes, both decided at BUILD time (Vite bakes VITE_ vars into the
 // bundle -- there is no server to read a runtime .env on GitHub Pages):
@@ -107,7 +108,11 @@ async function request(path, options = {}) {
 /** GET /documents — the processed-document records from the Google Sheet. */
 export async function getDocuments() {
   const payload = await request('/documents')
-  return Array.isArray(payload) ? payload : []
+  const rows = Array.isArray(payload) ? payload : []
+  // Proxy mode: Express already normalized this response (server/normalizeDocument.js).
+  // Direct mode: n8n's raw Sheet-header-keyed rows reach the browser unnormalized,
+  // so the same field-name translation has to happen here instead.
+  return isDirectMode ? normalizeDocuments(rows) : rows
 }
 
 /**
