@@ -208,7 +208,7 @@ which builds in `direct` mode (using `.env.pages`, which contains only the publi
 
 ## 9. Testing and evidence
 
-All required lecturer test cases, their results, and their supporting screenshot evidence are recorded in [TESTING.md](TESTING.md). It is the authoritative test record for this project; results are not duplicated here.
+All required lecturer test cases and their results are recorded in [TESTING.md](TESTING.md), together with references to the supporting screenshot evidence. The screenshot files themselves are submitted separately from this Git repository.
 
 ---
 
@@ -221,7 +221,8 @@ All required lecturer test cases, their results, and their supporting screenshot
 | [PROMPTS.md](PROMPTS.md) | Log of the Claude Code prompts that materially shaped this project, with results and corrections — including the development-history Document ID finding referenced in section 4. |
 | [TESTING.md](TESTING.md) | The formal manual test record required for submission. |
 | `README.md` | This file. |
-| `n8n-workflows/` | Sanitized exports of the n8n workflows this application depends on, with no live credentials inside them. |
+
+This repository contains the application source code and the project documentation listed above. The sanitized n8n workflow JSON exports and the screenshot/test evidence referenced in `TESTING.md` are submitted separately from this Git repository and are not stored in it.
 
 ---
 
@@ -251,7 +252,6 @@ server/
   server.js               Express proxy - the only layer that holds N8N_SECRET
   normalizeDocument.js     maps raw Google Sheet headers to CONTRACT.md field names
 docs/               generated static site (GitHub Pages output - do not edit by hand)
-n8n-workflows/       sanitized n8n workflow exports (added for final submission)
 README.md
 SPEC.md
 CONTRACT.md
