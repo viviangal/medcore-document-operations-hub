@@ -163,7 +163,7 @@ GitHub Pages is static hosting — it can serve the built React app, but it cann
 
 - A visitor enters the **classroom/demo API key** into the key bar shown at the top of the page.
 - That key is stored in `sessionStorage` for the current browser tab/session, with an in-memory fallback if `sessionStorage` is unavailable (`src/lib/directApiKey.js`). It is not written to `localStorage` and is not intended to persist beyond that session.
-- Based on the current source and build, the key is not written to source code, `.env.pages`, or the generated `docs/` output — this has been checked for the current build each time it was produced. A dedicated audit of the full Git history for any historical trace of a key value has not been performed yet and is planned as a separate step before final submission.
+- Based on the current source and build, the key is not written to source code, `.env.pages`, or the generated `docs/` output — this has been checked for the current build each time it was produced. The full Git history was also audited before final submission: the current `N8N_SECRET` value was searched for across every tracked file at the current commit and across every historical commit, with no match found in either.
 - Until a key is entered, the authenticated actions (Refresh, Send for processing, Mark as reviewed) are visibly disabled with an explanatory tooltip, and the API client itself (`src/api/client.js`) refuses to make any request to n8n at all — it fails locally with a configuration-style error rather than sending an unauthenticated call.
 - n8n CORS is configured to allow browser-origin requests from `https://viviangal.github.io`. If another web origin attempts to call the webhook, the browser's CORS enforcement prevents that page from successfully using the cross-origin request unless n8n allows that origin. CORS is not authentication; the `x-api-key` header remains the authentication mechanism.
 - The credential entered here is a rotatable classroom/demo credential intended for this kind of public, runtime-entered use — that is a property of how it's used and managed, not a claim that it is structurally different from whatever credential local mode currently has configured.
@@ -191,7 +191,7 @@ which builds in `direct` mode (using `.env.pages`, which contains only the publi
 - **The credential used for this deployment is a rotatable classroom/demo credential, and should be rotated or revoked after grading/demo use is complete.**
 - The runtime classroom key is stored only in `sessionStorage` (with an in-memory fallback), scoped to the current tab/session, and is never written to `localStorage`.
 - This application contains no AI extraction prompts, no urgency-decision rules, and no direct Google API calls — that logic exists only in the n8n workflows.
-- A full audit of Git history for any historical trace of a credential value has not yet been performed and is planned as a step before final submission.
+- The full Git history was audited before final submission: the current `N8N_SECRET` value was not found in any tracked file or any historical commit, `.env` was never committed at any point in the project's history, and no confirmed hard-coded credential was found anywhere in Git history.
 
 ---
 
