@@ -10,7 +10,7 @@ This repository is **the application layer only** — a React/Vite frontend and 
 - call the existing **n8n** automation, and
 - display the data n8n returns.
 
-All business logic — reading document content, AI extraction, deciding urgency, writing to Google Sheets, storing files in Google Drive, and sending Gmail notifications — is implemented in the n8n workflows, not here. This application must never reimplement that logic; it only submits requests and renders results. See [SPEC.md](SPEC.md) and [CONTRACT.md](CONTRACT.md) for the full rules this project was built against.
+All business logic — reading document content, AI extraction, deciding urgency, resolving relative deadlines, writing to Google Sheets, storing files in Google Drive, creating Google Calendar events when deadlines exist, and sending Gmail notifications — is implemented in the n8n workflows, not here. This application must never reimplement that logic; it only submits requests and renders results. See [SPEC.md](SPEC.md) and [CONTRACT.md](CONTRACT.md) for the full rules this project was built against.
 
 ---
 
