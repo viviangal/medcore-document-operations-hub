@@ -253,7 +253,6 @@ export default function Upload() {
                 />
                 <div className="result-head">
                   <p className="result-head__name">{result.file_name}</p>
-                  <p className="result-head__id">Document ID: {result.document_id}</p>
                 </div>
                 <DocumentFields record={{ ...result.fields, file_link: result.file_link }} />
                 <div className="result-actions">
